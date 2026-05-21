@@ -8,6 +8,14 @@
 
 set -euo pipefail
 
+# Load nvm so `npm` is on PATH inside this non-interactive shell.
+# Without this, scripts can't find npm even though Terminal can.
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+if [ -s "$NVM_DIR/nvm.sh" ]; then
+  # shellcheck disable=SC1091
+  . "$NVM_DIR/nvm.sh"
+fi
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CS_PLUGIN="/Users/ninishapradhan/Downloads/davinci-case-studies-plugin"
 HP_PLUGIN="/Users/ninishapradhan/Downloads/davinci-homepage-plugin"

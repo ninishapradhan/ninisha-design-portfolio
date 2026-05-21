@@ -987,6 +987,529 @@
     });
   }
 
+  /* ─── Orbit cards — scroll-linked arc traversal ────────────────────
+     Each .dc-cs-orbit__card carries a --t CSS var in [0..1]. The CSS
+     transform turns t into a position along a squashed half-ellipse
+     (right → apex → left). On scroll, we map the section's progress
+     through the viewport to a global scrollT in [0..1], then assign
+     each card its own t with a per-card offset so 3–4 cards are
+     visible on the arc at any time.
+
+     Reduced motion, narrow viewport (CSS hides the stage at ≤900px),
+     or any failure: we add .is-static to the wrapper and the static
+     grid fallback (.dc-cs-orbit__fallback) takes over via CSS. */
+  function initOrbit(root) {
+    var orbits = root.querySelectorAll("[data-dc-cs-orbit]");
+    if (!orbits.length) return;
+
+    orbits.forEach(function (orbit) {
+      var stage = orbit.querySelector(".dc-cs-orbit__stage");
+      var cards = orbit.querySelectorAll(".dc-cs-orbit__card");
+      if (!stage || !cards.length) { orbit.classList.add("is-static"); return; }
+
+      // Reduced motion or no rAF? Switch to the static grid fallback.
+      if (reduceMotion || typeof requestAnimationFrame !== "function") {
+        orbit.classList.add("is-static");
+        return;
+      }
+
+      // Sticky-scroll stack reveal. The outer section is tall
+      // (~520vh on desktop) and its inner .__sticky pane pins to
+      // the viewport. As the user scrolls, we map the section's
+      // through-viewport progress to a 0..1 per-card --slide-out
+      // value. Each card slides up + fades out across its own
+      // 1/N segment of the section.
+      var section = orbit.closest("[data-dc-cs-orbit-section]");
+      if (!section) { orbit.classList.add("is-static"); return; }
+      var n = cards.length;
+      var raf = 0;
+      var active = false;
+
+      function update() {
+        raf = 0;
+        var rect = section.getBoundingClientRect();
+        var vh = window.innerHeight || document.documentElement.clientHeight;
+        // total = scrollable distance through the section while the
+        // sticky pane is pinned. When section top reaches viewport top,
+        // progress = 0. When section bottom - vh reaches viewport top,
+        // progress = 1.
+        var total = section.offsetHeight - vh;
+        if (total <= 0) {
+          cards.forEach(function (c) { c.style.setProperty("--slide-out", "0"); });
+          return;
+        }
+        var progress = -rect.top / total;
+        if (progress < 0) progress = 0;
+        if (progress > 1) progress = 1;
+
+        // Convergence band covers most of the section's scroll
+        // runway so the cards glide gracefully from scattered to
+        // docked rather than snapping. Entry runway lets the heading
+        // settle first; exit runway holds the converged collage in
+        // view as the user scrolls toward the next section.
+        var entry = 0.08;
+        var exit  = 0.82;
+        var mapped;
+        if (progress <= entry) mapped = 0;
+        else if (progress >= exit) mapped = 1;
+        else mapped = (progress - entry) / (exit - entry);
+        // Ease-in-out cubic — gentle acceleration into the glide,
+        // gentle deceleration into the final dock. Reads as a glide,
+        // not a whoosh.
+        var eased = mapped < 0.5
+          ? 4 * mapped * mapped * mapped
+          : 1 - Math.pow(-2 * mapped + 2, 3) / 2;
+        stage.style.setProperty("--convergence", eased.toFixed(4));
+      }
+
+      function onScroll() {
+        if (raf) return;
+        raf = requestAnimationFrame(update);
+      }
+
+      if ("IntersectionObserver" in window) {
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) {
+            if (e.isIntersecting) {
+              if (!active) {
+                active = true;
+                window.addEventListener("scroll", onScroll, { passive: true });
+                window.addEventListener("resize", onScroll);
+                update();
+              }
+            } else if (active) {
+              active = false;
+              window.removeEventListener("scroll", onScroll);
+              window.removeEventListener("resize", onScroll);
+            }
+          });
+        }, { rootMargin: "200px 0px 200px 0px" });
+        io.observe(section);
+      } else {
+        window.addEventListener("scroll", onScroll, { passive: true });
+      }
+      update();
+    });
+  }
+
+  /* ─── HUB — dots-grid cursor halo ─────────────────────────────────
+     Tracks pointer over .dc-hub-dots and translates the halo blob to
+     follow. Disabled on touch and on prefers-reduced-motion. */
+  function initHubDots(root) {
+    var dots = root.querySelectorAll("[data-dc-hub-dots]");
+    if (!dots.length || reduceMotion) return;
+    if (window.matchMedia && window.matchMedia("(hover: none)").matches) return;
+    dots.forEach(function (d) {
+      var halo = d.querySelector(".dc-hub-dots__halo");
+      if (!halo) return;
+      var raf = 0;
+      var targetX = 50, targetY = 40, curX = 50, curY = 40;
+      function tick() {
+        curX += (targetX - curX) * 0.12;
+        curY += (targetY - curY) * 0.12;
+        halo.style.left = curX + "%";
+        halo.style.top  = curY + "%";
+        if (Math.abs(targetX - curX) > 0.1 || Math.abs(targetY - curY) > 0.1) {
+          raf = requestAnimationFrame(tick);
+        } else { raf = 0; }
+      }
+      d.parentElement && d.parentElement.addEventListener("mousemove", function (e) {
+        var r = d.getBoundingClientRect();
+        targetX = ((e.clientX - r.left) / r.width) * 100;
+        targetY = ((e.clientY - r.top) / r.height) * 100;
+        if (!raf) raf = requestAnimationFrame(tick);
+      });
+    });
+  }
+
+  /* ─── HUB — interleaved spotlight scale-on-scroll ─────────────────
+     IntersectionObserver toggles .is-in once the band reaches the
+     threshold; CSS handles the scale+opacity transition. */
+  function initHubScale(root) {
+    var els = root.querySelectorAll("[data-dc-hub-scale]");
+    if (!els.length) return;
+    if (reduceMotion || !("IntersectionObserver" in window)) {
+      els.forEach(function (el) { el.classList.add("is-in"); });
+      return;
+    }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) {
+          e.target.classList.add("is-in");
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.25 });
+    els.forEach(function (el) { io.observe(el); });
+  }
+
+  /* ─── HUB — draw-path-on-scroll spine ─────────────────────────────
+     SVG stroke-dashoffset animates from 2400 → 0 once the spine enters
+     view. Sister of initHubScale; separate observer so we can tune
+     thresholds independently if needed. */
+  function initHubSpine(root) {
+    var els = root.querySelectorAll("[data-dc-hub-spine]");
+    if (!els.length) return;
+    if (reduceMotion || !("IntersectionObserver" in window)) {
+      els.forEach(function (el) { el.classList.add("is-in"); });
+      return;
+    }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) {
+          e.target.classList.add("is-in");
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.45 });
+    els.forEach(function (el) { io.observe(el); });
+  }
+
+  /* ─── HUB — sticky tab bar shrink ────────────────────────────────
+     Adds .is-stuck to the wrapper once it pins to the top of the
+     viewport. Uses a sentinel element so we don't bind to scroll. */
+  function initHubStickyTabs(root) {
+    var wrap = root.querySelector("[data-dc-hub-tabbar]");
+    if (!wrap) return;
+    if (!("IntersectionObserver" in window)) return;
+    var sentinel = document.createElement("div");
+    sentinel.style.cssText = "position:absolute;top:0;height:1px;width:1px;pointer-events:none;";
+    wrap.parentElement && wrap.parentElement.insertBefore(sentinel, wrap);
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        wrap.classList.toggle("is-stuck", !e.isIntersecting);
+      });
+    }, { threshold: 0 });
+    io.observe(sentinel);
+  }
+
+  /* ─── HUB v2 — Stage beat sequencer ───────────────────────────────
+     Each [data-stage-sequencer] holds a column of [data-beat] elements
+     that start hidden (CSS sets opacity 0). On IO entry, we reveal
+     beats in order with per-kind dwell. Beat 1 (user-prompt) gets a
+     typewriter pass; beat 2 (ai-text) gets a word-by-word stream-in.
+     Sequence holds on beat 5, then loops after a tail-pause. */
+  function initStageSequencer(root) {
+    var stages = root.querySelectorAll("[data-stage-sequencer]");
+    if (!stages.length) return;
+    stages.forEach(setupStage);
+  }
+  function setupStage(stage) {
+    var beats = stage.querySelectorAll("[data-beat]");
+    if (!beats.length) return;
+    var state = { active: false, idx: 0, timer: 0, raf: 0 };
+
+    // Capture original text for typewriter / streamer, then clear it
+    // so beats start blank when they reveal.
+    var typedTargets = [];
+    var streamTargets = [];
+    beats.forEach(function (b) {
+      var t = b.querySelector("[data-typewriter-target]");
+      if (t) { typedTargets.push({ el: t, text: t.textContent }); t.textContent = ""; }
+      var s = b.querySelector("[data-stream-target]");
+      if (s) { streamTargets.push({ el: s, text: s.textContent }); s.textContent = ""; }
+    });
+
+    function dwellFor(beat) {
+      var kind = beat.getAttribute("data-beat") || "";
+      if (kind === "user-prompt")     return 1400;
+      if (kind === "ai-text")         return 1600;
+      if (kind === "rich-carousel")   return 2400;
+      if (kind === "data-spec")       return 2800;
+      if (kind === "data-chip")       return 1800;
+      if (kind === "locator")         return 2400;
+      if (kind === "lifestyle-image") return 2200;
+      if (kind === "reviews")         return 2800;
+      if (kind === "colorway")        return 2600;
+      if (kind === "video-loop")      return 3200;
+      if (kind === "brand-ticker")    return 2800;
+      if (kind === "stat-billboard")  return 2400;
+      if (kind === "stat-strip")      return 2400;
+      if (kind === "africa-map")      return 3600;
+      if (kind === "partner-grid")    return 3200;
+      return 1600;
+    }
+
+    function typewrite(target, done) {
+      var i = 0;
+      var step = 26; // ms per char
+      function tick() {
+        if (!state.active) { done(); return; }
+        i += 1;
+        target.el.textContent = target.text.slice(0, i);
+        if (i >= target.text.length) {
+          target.el.parentElement && target.el.parentElement.parentElement
+            && target.el.parentElement.parentElement.classList.add("is-typed");
+          done();
+        } else {
+          state.timer = setTimeout(tick, step);
+        }
+      }
+      tick();
+    }
+    function stream(target, done) {
+      var words = target.text.split(/(\s+)/);
+      var i = 0;
+      var step = 48;
+      function tick() {
+        if (!state.active) { done(); return; }
+        i += 1;
+        target.el.textContent = words.slice(0, i).join("");
+        if (i >= words.length) { done(); }
+        else { state.timer = setTimeout(tick, step); }
+      }
+      tick();
+    }
+
+    function reset() {
+      beats.forEach(function (b) { b.classList.remove("is-in"); b.classList.remove("is-out"); b.classList.remove("is-typed"); });
+      typedTargets.forEach(function (t) { t.el.textContent = ""; });
+      streamTargets.forEach(function (s) { s.el.textContent = ""; });
+      state.idx = 0;
+    }
+
+    function showNext() {
+      if (!state.active) return;
+      if (state.idx >= beats.length) {
+        // Hold the final beat, then loop after a tail-pause.
+        state.timer = setTimeout(function () { reset(); showNext(); }, 4800);
+        return;
+      }
+      var beat = beats[state.idx];
+      var kind = beat.getAttribute("data-beat");
+      var zone = beat.getAttribute("data-zone");
+      // Dim the previous CHAT beat so the new one reads as latest.
+      if (state.idx > 0) {
+        var prev = beats[state.idx - 1];
+        if (prev.getAttribute("data-zone") === "chat") {
+          prev.classList.add("is-out");
+        }
+      }
+      beat.classList.add("is-in");
+      state.idx += 1;
+      // Auto-scroll the canvas to keep the latest beat in view. Chat
+      // and rich bubbles grow downward; scrolling to scrollHeight
+      // keeps the latest at the bottom so older beats don't get
+      // clipped under the frame's overflow:hidden.
+      requestAnimationFrame(function () {
+        try { stage.scrollTo({ top: stage.scrollHeight, behavior: "smooth" }); }
+        catch (_) { stage.scrollTop = stage.scrollHeight; }
+      });
+
+      // Typewriter on user-prompt; stream on ai-text. Both advance the
+      // sequencer after they complete.
+      var tw  = beat.querySelector("[data-typewriter-target]");
+      var stw = beat.querySelector("[data-stream-target]");
+      if (tw) {
+        var tgt = typedTargets.find(function (x) { return x.el === tw; });
+        if (tgt) {
+          typewrite(tgt, function () {
+            state.timer = setTimeout(showNext, dwellFor(beat) - tgt.text.length * 26);
+          });
+          return;
+        }
+      }
+      if (stw) {
+        var stgt = streamTargets.find(function (x) { return x.el === stw; });
+        if (stgt) {
+          stream(stgt, function () {
+            state.timer = setTimeout(showNext, 1100);
+          });
+          return;
+        }
+      }
+      state.timer = setTimeout(showNext, dwellFor(beat));
+    }
+
+    function play() {
+      if (state.active) return;
+      state.active = true;
+      reset();
+      // Kick off almost immediately so the frame isn't blank on entry.
+      state.timer = setTimeout(showNext, 120);
+    }
+    function pause() {
+      state.active = false;
+      clearTimeout(state.timer);
+    }
+
+    if (reduceMotion) {
+      // Reveal everything statically.
+      typedTargets.forEach(function (t) { t.el.textContent = t.text; });
+      streamTargets.forEach(function (s) { s.el.textContent = s.text; });
+      beats.forEach(function (b) { b.classList.add("is-in"); });
+      return;
+    }
+
+    // Scroll-gated start: the sequence begins ONLY when the stage's
+    // frame enters the viewport. We try IO first; if its callback
+    // doesn't fire (some preview iframes block IO), a single shared
+    // scroll listener picks up the slack.
+    var hasFired = false;
+    function maybePlay() {
+      if (hasFired) return;
+      var r = stage.getBoundingClientRect();
+      var vh = window.innerHeight || document.documentElement.clientHeight || 0;
+      // Trigger when any portion of the stage is in view (with a
+      // 100px head-start below the fold so the first beat is already
+      // visible by the time the user finishes scrolling).
+      if (r.top < vh + 100 && r.bottom > 0) {
+        hasFired = true;
+        play();
+      }
+    }
+    // Initial check on next frame in case the stage is already in view.
+    requestAnimationFrame(maybePlay);
+    if ("IntersectionObserver" in window) {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting && !hasFired) {
+            hasFired = true;
+            play();
+            io.unobserve(stage);
+          }
+        });
+      }, { threshold: 0, rootMargin: "0px 0px 100px 0px" });
+      io.observe(stage);
+    }
+    // Scroll fallback (also covers preview environments where IO
+    // doesn't fire). One listener per stage is cheap; once the stage
+    // has played, the listener removes itself.
+    function onScroll() {
+      if (hasFired) {
+        window.removeEventListener("scroll", onScroll);
+        return;
+      }
+      maybePlay();
+    }
+    window.addEventListener("scroll", onScroll, { passive: true });
+    // Bulletproof poll fallback — covers iframes / sandboxes where
+    // neither IO nor synthetic scroll events fire. Cheap (one poll
+    // per stage; clears itself after firing).
+    var pollId = setInterval(function () {
+      if (hasFired) { clearInterval(pollId); return; }
+      maybePlay();
+    }, 250);
+  }
+
+  /* ─── HUB v2 — Pinned-section active tracking ────────────────────
+     Watches [data-dc-hub-pin] sections and toggles .is-active on the
+     entry whose center is closest to the viewport center. Also
+     updates the matching [data-dc-rail-link] on the left rail. */
+  function initStagePinTracking(root) {
+    var pins = root.querySelectorAll("[data-dc-hub-pin]");
+    if (!pins.length) return;
+    var links = root.querySelectorAll("[data-dc-rail-link]");
+    function update() {
+      var center = window.innerHeight / 2;
+      var best = null;
+      var bestDist = Infinity;
+      pins.forEach(function (p) {
+        var r = p.getBoundingClientRect();
+        var pc = (r.top + r.bottom) / 2;
+        var d = Math.abs(pc - center);
+        if (d < bestDist) { bestDist = d; best = p; }
+      });
+      pins.forEach(function (p) { p.classList.toggle("is-active", p === best); });
+      if (best) {
+        var slug = best.getAttribute("data-slug");
+        links.forEach(function (l) {
+          l.classList.toggle("is-active", l.getAttribute("data-dc-rail-link") === slug);
+        });
+      }
+    }
+    var ticking = false;
+    function onScroll() {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(function () { update(); ticking = false; });
+    }
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    update();
+  }
+
+  /* ─── HUB v3 — Page-name wipe between pinned entries ─────────────
+     For each [data-dc-hub-wipe], play a curtain wipe when the parent
+     pin section enters the viewport: curtain sweeps left→right at full
+     bleed, the [NAME] plate is centered during the cover, then the
+     curtain wipes off to the right revealing the section. */
+  function initHubWipe(root) {
+    var wipes = root.querySelectorAll("[data-dc-hub-wipe]");
+    if (!wipes.length) return;
+    if (reduceMotion || !("IntersectionObserver" in window)) {
+      wipes.forEach(function (w) { w.classList.add("is-revealed"); });
+      return;
+    }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        var wipe = e.target;
+        // Two-phase animation. CSS transitions on .is-wiping bring the
+        // curtain across; switching to .is-revealed slides it off.
+        // The plate fades in mid-cover.
+        wipe.classList.remove("is-revealed");
+        wipe.classList.add("is-wiping");
+        setTimeout(function () {
+          wipe.classList.remove("is-wiping");
+          wipe.classList.add("is-revealed");
+        }, 850);
+        io.unobserve(wipe);
+      });
+    }, { threshold: 0.25 });
+    wipes.forEach(function (w) { io.observe(w); });
+  }
+
+  /* ─── HUB — Case-study video play on scroll-into-view ─────────────
+     Diageo and Giant Eagle videos load their src + start playing only
+     when their containing case-study stage enters the viewport. Same
+     polling fallback as the use-case sequencer for preview environments
+     where IO doesn't fire. */
+  function initCaseStudyVideos(root) {
+    var videos = root.querySelectorAll("[data-cs-video]");
+    if (!videos.length) return;
+    videos.forEach(function (vid) {
+      var src = vid.getAttribute("data-asset-src");
+      if (!src) return;
+      var hasFired = false;
+      function maybePlay() {
+        if (hasFired) return;
+        var r = vid.getBoundingClientRect();
+        var vh = window.innerHeight || document.documentElement.clientHeight || 0;
+        if (r.top < vh + 100 && r.bottom > 0) {
+          hasFired = true;
+          // Resolve the build-time placeholder against the asset
+          // base. Server-rendered HTML uses __ASSETS__ which the WP
+          // plugin and the preview wrapper both rewrite at load time;
+          // when this JS runs after that rewrite the placeholder is
+          // gone. Re-resolve by looking at any other img in the doc.
+          var probe = document.querySelector("img[src*='/assets/uploads/']");
+          var base = probe ? probe.src.split("/assets/uploads/")[0] + "/assets/uploads/" : "/assets/uploads/";
+          vid.src = base + src;
+          var p = vid.play && vid.play();
+          if (p && p.catch) p.catch(function () { /* autoplay blocked — silent fail */ });
+        }
+      }
+      requestAnimationFrame(maybePlay);
+      if ("IntersectionObserver" in window) {
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) {
+            if (e.isIntersecting && !hasFired) { maybePlay(); io.unobserve(vid); }
+          });
+        }, { threshold: 0, rootMargin: "0px 0px 100px 0px" });
+        io.observe(vid);
+      }
+      var pollId = setInterval(function () {
+        if (hasFired) { clearInterval(pollId); return; }
+        maybePlay();
+      }, 250);
+      window.addEventListener("scroll", function onScroll() {
+        if (hasFired) { window.removeEventListener("scroll", onScroll); return; }
+        maybePlay();
+      }, { passive: true });
+    });
+  }
+
   /* ─── Boot ────────────────────────────────────────────────────── */
   ready(function () {
     var roots = document.querySelectorAll(".dc-cs-main, .dc-cs-detail");
@@ -1009,6 +1532,14 @@
       initCharReveal(root);
       initTilt(root);
       initQuoteMarker(root);
+      initOrbit(root);
+      initHubDots(root);
+      initHubScale(root);
+      initHubSpine(root);
+      initHubStickyTabs(root);
+      initStageSequencer(root);
+      initStagePinTracking(root);
+      initCaseStudyVideos(root);
     });
   });
 })();

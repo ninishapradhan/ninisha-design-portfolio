@@ -1,0 +1,242 @@
+/* DaVinci Homepage — bundled stylesheet for WordPress plugin.
+ *
+ * All rules are scoped under .dc-app to prevent leakage into the
+ * surrounding theme. The wrapping <div class="dc-app"> is rendered by
+ * the [davinci_homepage] shortcode.
+ *
+ * Nunito Sans is intentionally NOT loaded here — the host theme
+ * already loads it.
+ */
+
+/* ─── Brand tokens (scoped) ─────────────────────────────────────────── */
+.dc-app {
+  --dc-white:        #FFFFFF;
+  --dc-purple:       #5612BD;
+  --dc-purple-light: #D7BDFF;
+  --dc-blue-light:   #9DE5FF;
+  --dc-purple-deep:    #250651;
+  --dc-purple-violet:  #9250F2;
+  --dc-purple-glow:    #B695FF;
+  --dc-cyan-bright:    #67E1F7;
+  --dc-cyan-pop:       #57FFF7;
+  --dc-mint-pale:      #CEF0EE;
+  --dc-bg:           var(--dc-white);
+  --dc-surface:      #F9F5FF;
+  --dc-surface-2:    #F3F3F3;
+  --dc-border:       #D7BDFF;
+  --dc-border-faint: rgba(207, 194, 212, 0.30);
+  --dc-fg:           var(--dc-purple-deep);
+  --dc-fg-strong:    #100D0C;
+  --dc-fg-muted:     #757267;
+  --dc-fg-on-purple: var(--dc-white);
+  --dc-link:         var(--dc-purple);
+  --dc-cta-bg:       #85ECFF;
+  --dc-cta-fg:       var(--dc-purple-deep);
+  --dc-cta-pop-bg:   var(--dc-purple);
+  --dc-cta-pop-fg:   var(--dc-white);
+  --dc-grad-hero:    linear-gradient(90deg, #67E1F7 0%, #5612BD 31%, #9250F2 65%, #67E1F7 100%);
+  --dc-shadow-cta:   0 11px 34px -8px rgba(86, 18, 189, 0.35);
+  --dc-radius-sm:  10px;
+  --dc-radius-xl:  29px;
+  --dc-font: "Nunito Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Reset only inside our app — never affects the host theme */
+  font-family: var(--dc-font);
+  color: var(--dc-fg);
+  background: #fff;
+  /* Keep a fresh stacking context */
+  position: relative;
+  isolation: isolate;
+}
+.dc-app, .dc-app *, .dc-app *::before, .dc-app *::after { box-sizing: border-box; }
+.dc-app button { font-family: inherit; }
+
+.dc-app .dc-container { max-width: 1480px; margin: 0 auto; padding: 0 60px; }
+
+/* Reveal-on-scroll helper */
+.dc-app .reveal {
+  opacity: 0; transform: translateY(28px);
+  transition: opacity .8s ease, transform .8s cubic-bezier(.2,.7,.2,1);
+}
+.dc-app .reveal.in { opacity: 1 !important; transform: translateY(0) !important; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) {
+  .dc-app .reveal { opacity: 1; transform: none; transition: none; }
+}
+
+/* CTA primitives */
+.dc-app .dc-cta {
+  display: inline-flex; align-items: center; gap: 12px;
+  font: 700 26px/1 var(--dc-font);
+  background: var(--dc-cta-bg); color: var(--dc-cta-fg);
+  padding: 18px 40px; border-radius: var(--dc-radius-sm);
+  border: 0; cursor: pointer; transition: filter .15s ease, transform .15s ease;
+  box-shadow: var(--dc-shadow-cta);
+}
+.dc-app .dc-cta:hover  { filter: brightness(1.08); }
+.dc-app .dc-cta:active { transform: translateY(1px); filter: brightness(0.95); }
+.dc-app .dc-cta--pop {
+  background: var(--dc-cta-pop-bg); color: var(--dc-cta-pop-fg);
+  box-shadow: 0 11px 28px -10px rgba(157, 229, 255, 0.85);
+}
+.dc-app .dc-cta--ghost {
+  background: transparent; color: var(--dc-purple);
+  border: 1.5px solid var(--dc-purple);
+  box-shadow: none;
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   MOBILE RESPONSIVE OVERRIDES (≤900px and ≤480px)
+   Inline styles win the cascade unless we use !important. We target
+   the exact rendered patterns React produces.
+   ──────────────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .dc-app .dc-container { padding: 0 20px !important; }
+
+  /* Stack any 2-col grid */
+  .dc-app [style*="grid-template-columns: 1fr 1fr"],
+  .dc-app [style*="grid-template-columns:1fr 1fr"],
+  .dc-app [style*="grid-template-columns: 1.1fr 0.9fr"],
+  .dc-app [style*="grid-template-columns:1.1fr 0.9fr"],
+  .dc-app [style*="grid-template-columns: 1.05fr 1fr"],
+  .dc-app [style*="grid-template-columns: 1.4fr 1fr"] {
+    grid-template-columns: 1fr !important;
+    gap: 40px !important;
+  }
+  /* 4-col → 2-col */
+  .dc-app [style*="grid-template-columns: repeat(4,1fr)"],
+  .dc-app [style*="grid-template-columns: repeat(4, 1fr)"] {
+    grid-template-columns: repeat(2,1fr) !important;
+    gap: 16px !important;
+  }
+  .dc-app section [style*="grid-template-columns: repeat(4,1fr)"] > div:nth-child(2n+1),
+  .dc-app section [style*="grid-template-columns: repeat(4, 1fr)"] > div:nth-child(2n+1) {
+    border-left: none !important;
+  }
+  /* 6-col bento → single column */
+  .dc-app [style*="grid-template-columns: repeat(6, 1fr)"] {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+  .dc-app [style*="grid-column: span 6"],
+  .dc-app [style*="grid-column: span 3"],
+  .dc-app [style*="grid-column: span 2"] {
+    grid-column: span 1 !important;
+  }
+  .dc-app [style*="grid-template-columns: 1.4fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+  /* Headlines down-size */
+  .dc-app h1[style*="96px"] { font-size: 48px !important; line-height: 1.05 !important; }
+  .dc-app h2[style*="76px"] { font-size: 40px !important; line-height: 1.05 !important; }
+  .dc-app h2[style*="72px"] { font-size: 38px !important; line-height: 1.05 !important; }
+  .dc-app h2[style*="64px"] { font-size: 34px !important; line-height: 1.1 !important; }
+  .dc-app h2[style*="56px"] { font-size: 30px !important; line-height: 1.1 !important; }
+  .dc-app h3[style*="48px"], .dc-app h3[style*="44px"] { font-size: 26px !important; line-height: 1.15 !important; }
+  .dc-app h3[style*="36px"] { font-size: 22px !important; line-height: 1.2 !important; }
+  /* Stat band big number */
+  .dc-app [style*="800 64px"] { font-size: 42px !important; }
+  /* Manifesto giant ghost number — match unique weight+size combo
+     so the rule doesn't bleed onto things like maxWidth: 540 */
+  .dc-app [style*="900 540px"] { font-size: 200px !important; right: -10px !important; }
+  /* Marquee text smaller */
+  .dc-app [style*="800 36px"] { font-size: 22px !important; }
+  /* Phone mocks: ensure parent column fits viewport */
+  .dc-app section > .dc-container > div { max-width: 100%; }
+  /* Marquee gap tightening */
+  .dc-app section [style*="animation: marqueeScroll"],
+  .dc-app section [style*="animation:marqueeScroll"] { gap: 28px !important; }
+  /* Logo strip: stack and center */
+  .dc-app section [style*="justify-content: space-between"][style*="gap: 32px"] {
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 18px !important;
+  }
+  /* dc-cta brand button shrink */
+  .dc-app .dc-cta {
+    font-size: 15px !important;
+    padding: 14px 22px !important;
+    width: 100% !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+  }
+  /* FinalCTA action row stack */
+  .dc-app section [style*="display: inline-flex"][style*="gap: 12px"] {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 10px !important;
+  }
+  .dc-app section [style*="display: inline-flex"][style*="gap: 12px"] > button,
+  .dc-app section [style*="display: inline-flex"][style*="gap: 12px"] > a {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    justify-content: center !important;
+    padding: 14px 18px !important;
+    font-size: 14px !important;
+    white-space: nowrap !important;
+  }
+  /* Forms */
+  .dc-app form[style*="flex"] {
+    flex-direction: column !important;
+    width: 100% !important;
+    align-items: stretch !important;
+  }
+  .dc-app form input, .dc-app form select, .dc-app form button {
+    width: 100% !important;
+    min-width: 0 !important;
+    flex: 0 0 auto !important;
+    height: auto !important;
+    padding: 14px 16px !important;
+    font-size: 15px !important;
+    box-sizing: border-box !important;
+  }
+  .dc-app section [style*="padding: 48px 56px"] { padding: 28px 22px !important; }
+  .dc-app section [style*="padding: 36px 40px"] { padding: 22px 18px !important; }
+  /* MidBanner card padding tighten */
+  .dc-app section [style*="padding: 56px 48px"] { padding: 28px 22px !important; }
+  /* MidBanner h3 (42px) shrink for mobile readability */
+  .dc-app section h3[style*="42px"] { font-size: 26px !important; line-height: 1.15 !important; }
+  .dc-app section [style*="display: flex"][style*="justify-content: space-between"][style*="gap: 32px"],
+  .dc-app section [style*="display: flex"][style*="align-items: center"][style*="gap: 32px"] {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 20px !important;
+  }
+  .dc-app section [style*="display: flex"][style*="gap: 32px"] > div,
+  .dc-app section [style*="display: flex"][style*="gap: 32px"] > form {
+    flex: 0 0 auto !important;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+  /* Hide vertical pill picker overflow nicely */
+  .dc-app section [style*="flex-wrap: wrap"][style*="gap: 8px"] { row-gap: 8px !important; }
+  /* Float chips around hero phone — hide on mobile */
+  .dc-app section [style*="position: absolute"][style*="white-space: nowrap"][style*="background: rgb(255, 255, 255)"] {
+    display: none !important;
+  }
+  /* Glass callouts on journey phones — hide on mobile */
+  .dc-app section [style*="backdrop-filter"][style*="position: absolute"] {
+    display: none !important;
+  }
+  /* Sticky journey phone column — disable sticky + center */
+  .dc-app section [style*="position: sticky"][style*="top: 100px"],
+  .dc-app section [style*="position: sticky"][style*="top: 120px"] {
+    position: static !important;
+    height: auto !important;
+  }
+  /* General padding reductions */
+  .dc-app section[style*="padding: 120px 0"] { padding: 60px 0 !important; }
+  .dc-app section[style*="padding: 100px 0"] { padding: 50px 0 !important; }
+  .dc-app section[style*="padding: 80px 0"] { padding: 40px 0 !important; }
+  .dc-app section[style*="padding: 60px 0 100px"] { padding: 30px 0 50px !important; }
+  .dc-app section[style*="padding: 60px 0 80px"] { padding: 30px 0 40px !important; }
+  .dc-app section[style*="padding: 40px 0 20px"] { padding: 24px 0 12px !important; }
+}
+
+@media (max-width: 480px) {
+  .dc-app .dc-container { padding: 0 16px !important; }
+  .dc-app h1[style*="96px"] { font-size: 40px !important; }
+  .dc-app h2[style*="76px"], .dc-app h2[style*="72px"] { font-size: 32px !important; }
+  .dc-app [style*="540px/1"] { font-size: 160px !important; }
+}

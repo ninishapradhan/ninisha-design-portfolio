@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ninisha Pradhan — Design & Front-end Portfolio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700;800&display=swap" />
+<style>
+  :root {
+    --purple: #5612BD;
+    --purple-deep: #250651;
+    --purple-light: #D7BDFF;
+    --violet: #9250F2;
+    --cyan: #67E1F7;
+    --cyan-cta: #85ECFF;
+    --surface: #F9F5FF;
+    --fg: #100D0C;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Nunito Sans", system-ui, -apple-system, sans-serif;
+    color: var(--purple-deep);
+    background: linear-gradient(180deg, #fff 0%, var(--surface) 100%);
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1140px; margin: 0 auto; padding: 96px 32px 120px; }
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 800;
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--purple);
+  }
+  .eyebrow::before {
+    content: "";
+    width: 12px;
+    height: 6px;
+    background: var(--purple);
+    -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 69 34'><path d='M47.8 34l-.4-4.3c0-7.1-5.4-12.4-27.9-12.4L0 17l19.5-.3c22.6 0 27.9-5 27.9-12.4L47.8 0l.4 4.3c.6 6.6 7.2 11.8 15.4 12.4L69 17l-5.3.3c-8.3.5-14.9 5.8-15.5 12.4L47.8 34z'/></svg>") center / contain no-repeat;
+    mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 69 34'><path d='M47.8 34l-.4-4.3c0-7.1-5.4-12.4-27.9-12.4L0 17l19.5-.3c22.6 0 27.9-5 27.9-12.4L47.8 0l.4 4.3c.6 6.6 7.2 11.8 15.4 12.4L69 17l-5.3.3c-8.3.5-14.9 5.8-15.5 12.4L47.8 34z'/></svg>") center / contain no-repeat;
+  }
+  h1 {
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    font-size: 64px;
+    line-height: 1.05;
+    margin: 18px 0 18px;
+  }
+  h1 .grad {
+    background: linear-gradient(110deg, var(--cyan) 0%, var(--purple) 35%, var(--violet) 70%, var(--cyan) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .lede { color: #5b4f70; max-width: 720px; font-size: 18px; line-height: 1.6; margin: 0; }
+  h2 {
+    font-weight: 800;
+    font-size: 28px;
+    letter-spacing: -0.015em;
+    margin: 56px 0 8px;
+    color: var(--purple-deep);
+  }
+  .section-sub { color: #6F6883; font-size: 15px; margin: 0 0 24px; line-height: 1.5; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .grid--2 { grid-template-columns: repeat(2, 1fr); }
+  .grid--feature { grid-template-columns: 1fr; }
+  .card {
+    display: block;
+    padding: 26px;
+    background: #fff;
+    border: 1px solid rgba(207, 194, 212, 0.5);
+    border-radius: 18px;
+    text-decoration: none;
+    color: inherit;
+    box-shadow: 0 14px 40px -22px rgba(86, 18, 189, 0.18);
+    transition: box-shadow 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
+  }
+  .card:hover {
+    box-shadow: 0 28px 60px -22px rgba(86, 18, 189, 0.32);
+    transform: translateY(-2px);
+    border-color: var(--purple-light);
+  }
+  .card__kind {
+    font-weight: 800;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--purple);
+    margin-bottom: 12px;
+  }
+  .card__h { font-weight: 800; font-size: 19px; color: var(--purple-deep); letter-spacing: -0.01em; line-height: 1.3; }
+  .card__sub { color: #6F6883; font-size: 14px; margin: 8px 0 14px; line-height: 1.5; }
+  .card__cta { color: var(--purple); font-weight: 700; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
+  .card--feature .card__h { font-size: 24px; }
+  .footer {
+    margin-top: 80px;
+    padding-top: 32px;
+    border-top: 1px solid rgba(207, 194, 212, 0.4);
+    color: #6F6883;
+    font-size: 14px;
+  }
+  .footer a { color: var(--purple); font-weight: 700; }
+  @media (max-width: 900px) {
+    .wrap { padding: 56px 20px 80px; }
+    h1 { font-size: 40px; }
+    .grid, .grid--2 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <span class="eyebrow">Design & Front-end Portfolio</span>
+    <h1>Ninisha Pradhan, designing <span class="grad">commerce experiences</span> end to end.</h1>
+    <p class="lede">A working portfolio of pages I designed and shipped at DaVinci Commerce (formerly Jivox). Brand, layout, motion, copy, and front-end implementation — built as production WordPress plugins, rendered here as live previews. Click any card to open the page with animations and interactions intact.</p>
+  </header>
+
+  <section>
+    <h2>Featured: DaVinci Commerce homepage</h2>
+    <p class="section-sub">The Agentic BrandStore landing page. React + SSR, hydrated on the client.</p>
+    <div class="grid grid--feature">
+      <a class="card card--feature" href="./homepage/">
+        <div class="card__kind">Homepage · Landing</div>
+        <div class="card__h">Agentic BrandStore — Own your brand inside AI</div>
+        <div class="card__sub">Hero with shader gradient, brand-store rows, shopper journey, manifesto band, marquee, before/after, mosaic, demo form. The flagship marketing page.</div>
+        <div class="card__cta">Open live preview →</div>
+      </a>
+    </div>
+  </section>
+
+  <section>
+    <h2>Case studies</h2>
+    <p class="section-sub">Customer stories rendered as standalone detail pages. Each has its own animated hero, count-up stats, marker quote reveal, and capability cards.</p>
+    <div class="grid">
+      <a class="card" href="./case-studies/case-study/multichoice.html">
+        <div class="card__kind">Case study · Video Entertainment</div>
+        <div class="card__h">MultiChoice — AI revolutionizing content creation</div>
+        <div class="card__sub">3000% CTR lift across 50 African markets.</div>
+        <div class="card__cta">Open →</div>
+      </a>
+      <a class="card" href="./case-studies/case-study/giant-eagle.html">
+        <div class="card__kind">Case study · Retail Media</div>
+        <div class="card__h">Giant Eagle × Leap Media — First-party data via retail media</div>
+        <div class="card__sub">54% CTR lift, 15+ supplier brands, retail media at scale.</div>
+        <div class="card__cta">Open →</div>
+      </a>
+      <a class="card" href="./case-studies/case-study/diageo.html">
+        <div class="card__kind">Case study · Spirits Portfolio</div>
+        <div class="card__h">Diageo — From 15-day campaign cycles to under 24 hours</div>
+        <div class="card__sub">3.5x faster launches, 2x ROAS, $6.6M additional annual revenue.</div>
+        <div class="card__cta">Open →</div>
+      </a>
+      <a class="card" href="./case-studies/case-study/anonymous-cpg.html">
+        <div class="card__kind">Case study · Global CPG</div>
+        <div class="card__h">$12.6M in annual creative savings. 2-day launches.</div>
+        <div class="card__sub">Anonymized Fortune 500 CPG portfolio across 75+ markets.</div>
+        <div class="card__cta">Open →</div>
+      </a>
+      <a class="card" href="./case-studies/case-study/anonymous-pharmacy.html">
+        <div class="card__kind">Case study · Pharmacy</div>
+        <div class="card__h">Two compliance regimes. One AI pass. 100% first-pass approval.</div>
+        <div class="card__sub">Global health & pharmacy retailer, 2,000+ stores.</div>
+        <div class="card__cta">Open →</div>
+      </a>
+      <a class="card" href="./case-studies/case-study/anonymous-delivery.html">
+        <div class="card__kind">Case study · Delivery Platform</div>
+        <div class="card__h">300+ partners, real-time decisioning, 30% more daily orders.</div>
+        <div class="card__sub">On-demand delivery platform with live inventory + geo signals.</div>
+        <div class="card__cta">Open →</div>
+      </a>
+      <a class="card" href="./case-studies/case-study/anonymous-portfolio.html">
+        <div class="card__kind">Case study · Omnichannel Portfolio</div>
+        <div class="card__h">Ten brands. One workflow. 2x ROAS.</div>
+        <div class="card__sub">Fortune 500 omnichannel consumer portfolio.</div>
+        <div class="card__cta">Open →</div>
+      </a>
+    </div>
+  </section>
+
+  <section>
+    <h2>BrandStore use cases</h2>
+    <p class="section-sub">Vertical-specific BrandStore pitches. Same template, customized voice and imagery per category.</p>
+    <div class="grid">
+      <a class="card" href="./case-studies/use-case/alcobev.html">
+        <div class="card__kind">Use case</div>
+        <div class="card__h">AlcoBev</div>
+        <div class="card__cta">Open →</div>
+      </a>
+      <a class="card" href="./case-studies/use-case/luxury-fashion.html">
+        <div class="card__kind">Use case</div>
+        <div class="card__h">Luxury Fashion</div>
+        <div class="card__cta">Open →</div>
+      </a>
+      <a class="card" href="./case-studies/use-case/skincare.html">
+        <div class="card__kind">Use case</div>
+        <div class="card__h">Skincare</div>
+        <div class="card__cta">Open →</div>
+      </a>
+      <a class="card" href="./case-studies/use-case/electronics.html">
+        <div class="card__kind">Use case</div>
+        <div class="card__h">Electronics</div>
+        <div class="card__cta">Open →</div>
+      </a>
+      <a class="card" href="./case-studies/use-case/petcare.html">
+        <div class="card__kind">Use case</div>
+        <div class="card__h">Petcare</div>
+        <div class="card__cta">Open →</div>
+      </a>
+      <a class="card" href="./case-studies/use-case/confectionery.html">
+        <div class="card__kind">Use case</div>
+        <div class="card__h">Confectionery</div>
+        <div class="card__cta">Open →</div>
+      </a>
+      <a class="card" href="./case-studies/use-case/food-beverages.html">
+        <div class="card__kind">Use case</div>
+        <div class="card__h">Food & Beverages</div>
+        <div class="card__cta">Open →</div>
+      </a>
+      <a class="card" href="./case-studies/use-case/home-living.html">
+        <div class="card__kind">Use case</div>
+        <div class="card__h">Home & Living</div>
+        <div class="card__cta">Open →</div>
+      </a>
+    </div>
+  </section>
+
+  <section>
+    <h2>Landing pages</h2>
+    <p class="section-sub">Paid-campaign landing pages designed for LinkedIn and search.</p>
+    <div class="grid grid--2">
+      <a class="card" href="./case-studies/landing/brandstore-2-weeks.html">
+        <div class="card__kind">Landing · Paid Campaign</div>
+        <div class="card__h">Launch your BrandStore in 2 weeks</div>
+        <div class="card__sub">Conversion-focused LinkedIn paid ad landing page.</div>
+        <div class="card__cta">Open →</div>
+      </a>
+      <a class="card" href="./case-studies/landing/seo-geo-next.html">
+        <div class="card__kind">Landing · SEO/GEO</div>
+        <div class="card__h">SEO is yesterday. GEO is next.</div>
+        <div class="card__sub">Discoverability-themed landing page on generative engine optimization.</div>
+        <div class="card__cta">Open →</div>
+      </a>
+    </div>
+  </section>
+
+  <section>
+    <h2>Main directory page</h2>
+    <p class="section-sub">The hub page on davincicommerce.ai that lists all case studies and use cases.</p>
+    <div class="grid grid--feature">
+      <a class="card" href="./case-studies/main.html">
+        <div class="card__kind">Main · Directory</div>
+        <div class="card__h">Case Studies & Use Cases — main page</div>
+        <div class="card__cta">Open →</div>
+      </a>
+    </div>
+  </section>
+
+  <footer class="footer">
+    Designed, written, and built by Ninisha Pradhan · DaVinci Commerce (formerly Jivox). Live pages on
+    <a href="https://davincicommerce.ai" target="_blank" rel="noopener">davincicommerce.ai</a>.
+  </footer>
+
+</div>
+</body>
+</html>

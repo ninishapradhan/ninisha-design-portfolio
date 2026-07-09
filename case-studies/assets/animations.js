@@ -1510,6 +1510,689 @@
     });
   }
 
+  /* ─── Product SCENE — one continuous phone: hero-right → center →
+     emit → scatter → rotating ring → shift left + detail copy ────────
+     Continuous rAF (reliable in real browsers + preview iframes). One
+     section, one phone. ≤900px / reduced motion: .is-static fallback
+     (CSS shows the chat once + a horizontal card scroll). */
+  function initProdxScene(root) {
+    var sections = root.querySelectorAll("[data-dc-cs-prodx-scene]");
+    if (!sections.length) return;
+
+    sections.forEach(function (section) {
+      var sticky = section.querySelector(".dc-cs-prodx-scene__sticky");
+      var phone  = section.querySelector(".dc-cs-prodx-scene__phone");
+      var cards  = section.querySelectorAll("[data-scene-card]");
+      if (!sticky || !phone || !cards.length) return;
+      var N = cards.length;
+      var chat  = section.querySelector("[data-scene-chat]");
+      var beats = chat ? chat.querySelectorAll("[data-jbeat]") : [];
+      var blocks = section.querySelectorAll("[data-jblock]");
+      var chipgrps = section.querySelectorAll("[data-chipgrp]");
+      var povls = section.querySelectorAll("[data-povl]");
+      var colL = section.querySelector('[data-jrn-col="left"]');     // purchase copy (phone right)
+      var colR = section.querySelector('[data-jrn-col="right"]');    // consideration copy (phone left)
+      var chipsColL = section.querySelector('[data-chips-col="left"]');
+      var chipsColR = section.querySelector('[data-chips-col="right"]');
+      var LEFT_MAX = 3; // beats 0–3 = consideration (phone LEFT); 4–5 = purchase (phone RIGHT)
+      var curBeat = -1;
+      // Collage targets (px from viewport centre): cards scatter across the
+      // centre + LEFT while the phone holds upright on the right.
+      var CTGT = [
+        { x: -150, y:  10, r: -5, s: 0.96 },
+        { x: -410, y: 100, r:  4, s: 0.86 },
+        { x:   60, y:  55, r:  6, s: 0.90 },
+        { x: -250, y: 200, r: -7, s: 0.92 },
+        { x:   60, y: 175, r:  3, s: 0.84 },
+        { x: -430, y: 235, r: -4, s: 0.80 }
+      ];
+
+      var narrow = window.matchMedia && window.matchMedia("(max-width: 900px)").matches;
+      if (reduceMotion || typeof requestAnimationFrame !== "function") {
+        // No-motion fallback: full transcript + all captions stacked.
+        section.classList.add("is-static");
+        return;
+      }
+      if (narrow) {
+        // Mobile (motion ok): linear, visual-first auto-play — when the
+        // phone enters view, its chat auto-advances through the beats and
+        // the active phase-word + caption + chips show beneath it, looping.
+        // (Mirrors the use-case pages' on-view auto-play, not desktop's
+        // scroll-scrubbed pinned scene.) Collage = header + swipe card row.
+        section.classList.add("is-mplay");
+        var mNB = beats.length;
+        if (mNB) {
+          var mIdx = -1, mTimer = null, mRunning = false;
+          var mShow = function (i) {
+            mIdx = i;
+            if (chat && beats[i]) chat.scrollTop = Math.max(0, beats[i].offsetTop - 16);
+            for (var b = 0; b < blocks.length; b++) blocks[b].classList.toggle("is-active", (+blocks[b].getAttribute("data-jblock")) === i);
+            for (var c = 0; c < chipgrps.length; c++) chipgrps[c].classList.toggle("is-active", (+chipgrps[c].getAttribute("data-chipgrp")) === i);
+            for (var pv = 0; pv < povls.length; pv++) povls[pv].classList.toggle("is-active", (+povls[pv].getAttribute("data-povl")) === i);
+            var consider = i <= LEFT_MAX;
+            if (colR) colR.classList.toggle("is-on", consider);
+            if (colL) colL.classList.toggle("is-on", !consider);
+            if (chipsColR) chipsColR.classList.toggle("is-on", consider || i === 5);
+            if (chipsColL) chipsColL.classList.toggle("is-on", i === 4);
+          };
+          var mStart = function () { if (mRunning) return; mRunning = true; mShow(0); mTimer = setInterval(function () { mShow((mIdx + 1) % mNB); }, 3200); };
+          var mStop = function () { mRunning = false; if (mTimer) { clearInterval(mTimer); mTimer = null; } };
+          var mTarget = phone || section;
+          if ("IntersectionObserver" in window) {
+            var mIo = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) mStart(); else mStop(); }); }, { threshold: 0.3 });
+            mIo.observe(mTarget);
+          } else { mStart(); }
+        }
+        return;
+      }
+
+      function clamp(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+      function sm(a, b, x) { var t = clamp((x - a) / (b - a)); return t * t * (3 - 2 * t); }
+
+      var start = null;
+      function frame(now) {
+        if (start === null) start = now;
+        var rect = section.getBoundingClientRect();
+        var vw = window.innerWidth || document.documentElement.clientWidth;
+        var vh = window.innerHeight || document.documentElement.clientHeight;
+        var total = section.offsetHeight - vh;
+        var visible = rect.bottom > -60 && rect.top < vh + 60;
+
+        if (total > 0 && visible) {
+          var p = clamp(-rect.top / total);
+
+          var heroOut   = sm(0.05, 0.12, p);     // hero copy fades
+          var straighten= sm(0.08, 0.16, p);     // phone slant → upright (stays RIGHT)
+          var bg        = sm(0.10, 0.24, p);     // dark → light
+          var emit      = sm(0.14, 0.26, p);     // cards leave the phone
+          var scatter   = sm(0.20, 0.38, p);     // cards spread into a centre+left collage
+          var clear     = sm(0.44, 0.54, p);     // collage floats up + fades
+          var pin       = sm(0.46, 0.56, p);     // phone moves right → down+left, pins
+          var jrn       = sm(0.52, 0.58, p);     // journey copy + chips fade in
+          var journeyP  = sm(0.56, 0.93, p);     // chat scrubs through beats
+          var cue       = 1 - clamp(p / 0.05);
+          var t         = (now - start) / 1000;
+
+          sticky.style.setProperty("--hero", (1 - heroOut).toFixed(4));
+          sticky.style.setProperty("--bg", bg.toFixed(4));
+          sticky.style.setProperty("--jrn", jrn.toFixed(4));
+          sticky.style.setProperty("--cue", cue.toFixed(4));
+          sticky.style.setProperty("--collage", (scatter * (1 - clear)).toFixed(4));
+
+          // ── Journey scroll position FIRST — it drives both the chat AND
+          //    which beat is active, so chips/copy stay in lock-step with
+          //    the visible chat content (not a separate timer). ──────────
+          var nB = beats.length;
+          var sct = 0, activeBeat = -1, purchaseSide = 0;
+          if (chat && nB) {
+            var firstTop = Math.max(0, beats[0].offsetTop - 16);
+            if (p < 0.575) {
+              // Pin handoff: scroll the hero block up to the FIRST journey
+              // beat as the phone settles left, so beat 0's copy is ready
+              // the instant it lands (no dead stretch with no caption).
+              var pre = sm(0.50, 0.575, p);
+              sct = firstTop * pre;
+              activeBeat = pre >= 0.85 ? 0 : -1;
+            } else {
+              // Scrub the beats directly (beat 0 → last). activeBeat is the
+              // beat currently at the top, so copy + chips stay in lock-step.
+              var beatF = sm(0.575, 0.93, p) * (nB - 1);   // 0 .. nB-1
+              var i0 = Math.floor(beatF); if (i0 > nB - 2) i0 = nB - 2; if (i0 < 0) i0 = 0;
+              var t0 = Math.max(0, beats[i0].offsetTop - 16);
+              var t1 = Math.max(0, beats[i0 + 1].offsetTop - 16);
+              sct = t0 + (t1 - t0) * (beatF - i0);
+              activeBeat = Math.floor(beatF + 0.0001); if (activeBeat > nB - 1) activeBeat = nB - 1;
+              var ps = clamp(beatF - 3);                   // 0 at beat 3, 1 at beat 4
+              purchaseSide = ps * ps * (3 - 2 * ps);
+            }
+            chat.scrollTop = sct;
+          }
+
+          // ── ONE phone: hero/collage RIGHT (upright) → pins LEFT for the
+          //    consideration beats → swaps back RIGHT for purchase. ──────
+          var phoneXfrac = (1 - pin) + pin * (2 * purchaseSide - 1);   // +1 right, -1 left
+          var unit = vw * 0.20;
+          var phoneX = phoneXfrac * unit;
+          var phoneYpx = pin * 6;
+          var rz = (1 - straighten) * 13;                 // in-plane slant (X-Y)
+          var ryDeg = (1 - straighten) * -20;             // 3D tilt (Z-plane)
+          phone.style.transform = "perspective(1500px) translate(calc(-50% + " + phoneX.toFixed(1) + "px), calc(-50% + " + phoneYpx.toFixed(1) + "px)) rotateY(" + ryDeg.toFixed(2) + "deg) rotateZ(" + rz.toFixed(2) + "deg)";
+
+          // ── Collage cards: emit from the (right) phone → scatter into a
+          //    still centre+left collage (UPRIGHT, no tilt) → gentle drift
+          //    → float up + fade as the phone pins. ──────────────────────
+          cards.forEach(function (card, i) {
+            var g = CTGT[i % CTGT.length];
+            var driftA = scatter * (1 - clear);
+            var dx = Math.sin(t * 0.6 + i * 1.3) * 5 * driftA;
+            var dy = Math.cos(t * 0.5 + i * 1.7) * 5 * driftA;
+            var x = unit + (g.x - unit) * scatter + dx;
+            var y = g.y * scatter - clear * vh * 0.78 + dy;
+            var s = (0.25 + 0.75 * emit) * g.s * (1 - 0.06 * clear);
+            card.style.transform = "translate(calc(-50% + " + x.toFixed(1) + "px), calc(-50% + " + y.toFixed(1) + "px)) scale(" + s.toFixed(3) + ")";
+            card.style.opacity = (emit * (1 - clear)).toFixed(3);
+          });
+
+          // ── Chips + copy: position the chip layers at the phone's
+          //    copy-side edge and toggle the ACTIVE beat (scroll-synced). ─
+          if (chat && nB && activeBeat >= 0) {
+            var phoneHalf = phone.offsetWidth / 2;
+            var centerPx = vw / 2 + phoneX;
+            var topPx = chat.getBoundingClientRect().top + 28;
+            if (chipsColR) { chipsColR.style.left = (centerPx + phoneHalf - 14) + "px"; chipsColR.style.top = topPx + "px"; }
+            if (chipsColL) { chipsColL.style.left = (centerPx - phoneHalf - 248 + 14) + "px"; chipsColL.style.top = topPx + "px"; }
+            if (activeBeat !== curBeat) {
+              curBeat = activeBeat;
+              for (var b = 0; b < blocks.length; b++) blocks[b].classList.toggle("is-active", (+blocks[b].getAttribute("data-jblock")) === activeBeat);
+              for (var c3 = 0; c3 < chipgrps.length; c3++) chipgrps[c3].classList.toggle("is-active", (+chipgrps[c3].getAttribute("data-chipgrp")) === activeBeat);
+              for (var pv2 = 0; pv2 < povls.length; pv2++) povls[pv2].classList.toggle("is-active", (+povls[pv2].getAttribute("data-povl")) === activeBeat);
+              var consider = activeBeat <= LEFT_MAX;   // consideration = phone LEFT, copy on RIGHT
+              if (colR) colR.classList.toggle("is-on", consider);
+              if (colL) colL.classList.toggle("is-on", !consider);
+              // chips: consideration + the paths chip (beat 5) live on the
+              // RIGHT edge; only the locator chip (beat 4) sits on the LEFT.
+              if (chipsColR) chipsColR.classList.toggle("is-on", consider || activeBeat === 5);
+              if (chipsColL) chipsColL.classList.toggle("is-on", activeBeat === 4);
+            }
+          } else if (curBeat !== -1) {
+            curBeat = -1;
+            for (var z = 0; z < blocks.length; z++) blocks[z].classList.remove("is-active");
+            for (var z2 = 0; z2 < chipgrps.length; z2++) chipgrps[z2].classList.remove("is-active");
+            for (var z3 = 0; z3 < povls.length; z3++) povls[z3].classList.remove("is-active");
+            if (colL) colL.classList.remove("is-on"); if (colR) colR.classList.remove("is-on");
+            if (chipsColL) chipsColL.classList.remove("is-on"); if (chipsColR) chipsColR.classList.remove("is-on");
+          }
+        }
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    });
+  }
+
+
+  /* ─── Architecture scrollytelling (Page 2 / how-it-works) ───────────
+     ONE pinned phone; as each copy beat scrolls through the viewport
+     centre an IntersectionObserver makes it active and swaps the phone
+     screen to the experience that block produces. No scrubbing — robust.
+     No IntersectionObserver: .is-static fallback (all copy + first
+     screen, fully crawlable). */
+  /* Typewriter: types the prompt text on view, leaves the caret blinking. */
+  function initHiwType(root) {
+    var els = root.querySelectorAll("[data-hiw-type]");
+    if (!els.length) return;
+    els.forEach(function (el) {
+      var full = el.textContent;
+      if (reduceMotion || !("IntersectionObserver" in window)) return; // full text stays
+      var started = false;
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting && !started) {
+            started = true; io.unobserve(el);
+            el.textContent = "";
+            var i = 0;
+            (function step() {
+              el.textContent = full.slice(0, i);
+              if (i++ <= full.length) setTimeout(step, 38);
+            })();
+          }
+        });
+      }, { threshold: 0.6 });
+      io.observe(el);
+    });
+  }
+
+  function initHiwArch(root) {
+    var sections = root.querySelectorAll("[data-hiw-arch]");
+    if (!sections.length) return;
+
+    sections.forEach(function (section) {
+      var phone  = section.querySelector("[data-hiw-phone]");
+      var beats  = section.querySelectorAll("[data-hiw-beat]");
+      var screens = section.querySelectorAll("[data-hiw-screen]");
+      if (!phone || !beats.length || !screens.length) return;
+
+      function show(id) {
+        for (var s = 0; s < screens.length; s++) {
+          screens[s].classList.toggle("is-on", screens[s].getAttribute("data-hiw-screen") === id);
+        }
+        for (var b = 0; b < beats.length; b++) {
+          beats[b].classList.toggle("is-active", beats[b].getAttribute("data-hiw-beat") === id);
+        }
+      }
+
+      if (!("IntersectionObserver" in window)) {
+        section.classList.add("is-static");
+        return;
+      }
+
+      // First screen on by default; activate as each beat crosses centre.
+      show(beats[0].getAttribute("data-hiw-beat"));
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) show(e.target.getAttribute("data-hiw-beat"));
+        });
+      }, { rootMargin: "-45% 0px -45% 0px", threshold: 0 });
+      beats.forEach(function (bt) { io.observe(bt); });
+    });
+  }
+
+
+  /* ─── "What if I'm not there?" — generic ⇄ BrandStore toggle. The WITH
+     side plays as a scripted chat inside the MacBook: each prompt TYPES
+     into the input box, sends, the rich answer surfaces, it scrolls, then
+     the next question types. Loops. ──────────────────────────────────── */
+  function initProdxMiss(root) {
+    root.querySelectorAll("[data-miss]").forEach(function (card) {
+      var scroller = card.querySelector("[data-miss-scroll]");
+      var input = card.querySelector("[data-miss-input]");
+      var tabs = [].slice.call(card.querySelectorAll("[data-miss-tab]"));
+      var genericState = card.querySelector('[data-miss-state="generic"]');
+      var brandState = card.querySelector('[data-miss-state="brand"]');
+      var rvs = [].slice.call(card.querySelectorAll(".dc-cs-prodx-miss__rv"));
+      var timers = [], playing = false, inView = false;
+
+      function activeState() { return card.classList.contains("is-brand") ? brandState : genericState; }
+      function curTurns() { return [].slice.call(activeState().querySelectorAll("[data-turn]")); }
+      function clr() { for (var i = 0; i < timers.length; i++) clearTimeout(timers[i]); timers = []; }
+      function at(fn, ms) { var t = setTimeout(fn, ms); timers.push(t); return t; }
+      function toEnd() { if (scroller) scroller.scrollTo({ top: scroller.scrollHeight, behavior: "smooth" }); }
+      function showAll() { for (var i = 0; i < rvs.length; i++) rvs[i].classList.add("is-shown"); if (input) input.textContent = ""; }
+      function reset() { for (var i = 0; i < rvs.length; i++) rvs[i].classList.remove("is-shown"); if (input) input.textContent = ""; if (scroller) scroller.scrollTop = 0; }
+
+      function typeIn(text, done) {
+        if (!input) { done(); return; }
+        input.textContent = ""; var i = 0;
+        (function step() {
+          if (i > text.length) { at(done, 450); return; }
+          input.textContent = text.slice(0, i); i++;
+          at(step, 32);
+        })();
+      }
+      function runTurn(turns, idx) {
+        if (!playing) return;
+        if (idx >= turns.length) {
+          var note = activeState().querySelector("[data-miss-endnote]");
+          if (note) at(function () { note.classList.add("is-shown"); toEnd(); }, 400);
+          if (card.classList.contains("is-brand")) {
+            at(function () { reset(); at(function () { runTurn(curTurns(), 0); }, 500); }, 3000);   // With loops
+          } else {
+            at(function () { playing = false; }, 900);   // Without plays once, then holds (no repeat)
+          }
+          return;
+        }
+        var t = turns[idx];
+        var u = t.querySelector("[data-turn-user]");
+        var a = t.querySelector("[data-turn-ai]");
+        var text = u ? (u.textContent || "").trim() : "";
+        typeIn(text, function () {
+          if (input) input.textContent = "";        // "send": clear the box
+          if (u) u.classList.add("is-shown");        // user bubble drops in
+          toEnd();
+          at(function () {
+            if (a) a.classList.add("is-shown");       // answer surfaces
+            toEnd();
+            at(function () { runTurn(turns, idx + 1); }, 2500);
+          }, 720);
+        });
+      }
+      function start() { if (playing) return; playing = true; reset(); at(function () { runTurn(curTurns(), 0); }, 600); }
+      function stop() { playing = false; clr(); }
+
+      function setState(brand) {
+        card.classList.toggle("is-brand", brand);
+        for (var i = 0; i < tabs.length; i++) tabs[i].classList.toggle("is-on", (tabs[i].getAttribute("data-miss-tab") === "with") === brand);
+        stop();
+        if (reduceMotion) showAll();
+        else if (inView) start();
+        else reset();
+      }
+      tabs.forEach(function (tab) {
+        tab.addEventListener("click", function () { setState(tab.getAttribute("data-miss-tab") === "with"); });
+      });
+      var endBtn = card.querySelector("[data-miss-endnote]");
+      if (endBtn) endBtn.addEventListener("click", function () { setState(true); });
+
+      if (reduceMotion || typeof requestAnimationFrame !== "function") { showAll(); return; }
+
+      if ("IntersectionObserver" in window) {
+        new IntersectionObserver(function (es) {
+          es.forEach(function (e) {
+            inView = e.isIntersecting;
+            if (inView) start(); else stop();
+          });
+        }, { threshold: 0.3 }).observe(card);
+      } else { inView = true; }
+    });
+  }
+
+  /* ─── Vertical ticker — scroll-driven, lands on "Your Brand" ──── */
+  function initProdxTicker(root) {
+    root.querySelectorAll("[data-ticker]").forEach(function (sec) {
+      var track = sec.querySelector("[data-ticker-track]");
+      var rail = sec.querySelector(".dc-cs-prodx-tick__rail");
+      var you = track && track.querySelector(".dc-cs-prodx-tick__card--you");
+      var cards = track ? track.querySelectorAll(".dc-cs-prodx-tick__card") : [];
+      if (!track || !rail) return;
+      function clamp(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+      function arc() {
+        // Mobile: no curved arc — names are centre-aligned and scroll
+        // straight up (only the vertical landing on "Your Brand" remains).
+        if ((window.innerWidth || 1024) < 700) {
+          for (var m = 0; m < cards.length; m++) cards[m].style.transform = "";
+          return;
+        }
+        var amp = 46;
+        var rr = rail.getBoundingClientRect();
+        var cyc = rr.top + rr.height / 2, R = rr.height / 2 || 1;
+        for (var i = 0; i < cards.length; i++) {
+          var cr = cards[i].getBoundingClientRect();
+          var dy = (cr.top + cr.height / 2 - cyc) / R;     // -1 (top) .. 1 (bottom)
+          var k = 1 - dy * dy; if (k < 0) k = 0;           // 1 at centre, 0 at edges
+          cards[i].style.transform = "translateX(" + (-amp * k).toFixed(1) + "px)";
+        }
+      }
+      if (reduceMotion || typeof requestAnimationFrame !== "function") {
+        if (you) { track.style.transform = "translateY(" + (-Math.max(0, you.offsetTop + you.offsetHeight / 2 - rail.clientHeight / 2)) + "px)"; you.classList.add("is-on"); }
+        arc();
+        return;
+      }
+      function frame() {
+        var r = sec.getBoundingClientRect();
+        var vh = window.innerHeight || document.documentElement.clientHeight;
+        var scrollable = sec.offsetHeight - vh;
+        var prog = clamp(-r.top / (scrollable > 1 ? scrollable : 1));
+        var landed = clamp(prog / 0.62);                   // centres "Your Brand" by 62%, then holds (pinned)
+        var target = you ? (you.offsetTop + you.offsetHeight / 2 - rail.clientHeight / 2) : 0;
+        track.style.transform = "translateY(" + (-Math.max(0, target) * landed) + "px)";
+        arc();
+        if (you) you.classList.toggle("is-on", landed > 0.95);
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    });
+  }
+
+  /* ─── Overview three-act journey (morphing phone) ───────────────── */
+  function initOvJourney(root) {
+    var sections = root.querySelectorAll("[data-ov-jrn]");
+    if (!sections.length) return;
+
+    sections.forEach(function (section) {
+      var phone   = section.querySelector(".dc-cs-ov-jrn__ph--main");
+      var screensEl = section.querySelector(".dc-cs-ov-jrn__screens");
+      var screens = section.querySelectorAll("[data-ov-screen]");  // 4: generic / surfaced / exp / buy
+      var narrs   = section.querySelectorAll("[data-ov-narr]");    // 3 phases
+      var dots    = section.querySelectorAll("[data-ov-dot]");     // 3 phases
+      var chips   = section.querySelectorAll("[data-ov-chips]");   // 3 phases
+      if (!screens.length) return;
+
+      // Screen → narration phase: screens 0 (generic) & 1 (surfaced) = Discovery;
+      // screen 2 = Experience, screen 3 = Purchase.
+      function phaseOf(sc) { return sc <= 1 ? 0 : (sc - 1); }
+      function setPhase(sc) {
+        var ph = phaseOf(sc);
+        for (var j = 0; j < narrs.length; j++) narrs[j].classList.toggle("is-on", j === ph);
+        for (var m = 0; m < chips.length; m++) chips[m].classList.toggle("is-on", m === ph);
+        for (var k = 0; k < dots.length; k++) {
+          dots[k].classList.toggle("is-on", k <= ph);
+          dots[k].classList.toggle("is-cur", k === ph);
+        }
+        section.classList.toggle("is-brand", sc >= 2);
+      }
+
+      // The desktop scroll sequence — generic → surfaced → experience → purchase.
+      // Chrome stays ChatGPT through discovery (no surface cycling); the surfaces
+      // live in the strip + a tiny "live · in chat" caption. sc: which screen.
+      var SEQ = [
+        { sc: 0, surf: "chatgpt" },  // generic, your brand absent
+        { sc: 1, surf: "chatgpt" },  // surfaced among others
+        { sc: 2, brand: true },      // experience
+        { sc: 3, brand: true },      // purchase
+      ];
+      var N = SEQ.length;
+
+      function setState(idx) {
+        var st = SEQ[idx];
+        for (var i = 0; i < screens.length; i++) screens[i].classList.toggle("is-on", i === st.sc);
+        setPhase(st.sc);
+        if (!st.brand && st.surf) section.setAttribute("data-surface", st.surf);
+      }
+
+      if (reduceMotion || typeof requestAnimationFrame !== "function") {
+        section.classList.add("is-static");
+        return;
+      }
+
+      var narrow = window.matchMedia && window.matchMedia("(max-width: 900px)").matches;
+      if (narrow) {
+        // Mobile: a manual horizontal swipe — all 4 screens live in a
+        // scroll-snap track; the chrome + narration sync to the centred slide.
+        section.classList.add("is-mswipe");
+        // each slide shows its content; surfaced slide keeps ChatGPT chrome + the strip.
+        screens.forEach(function (s) { s.classList.add("is-on"); });
+        function syncTo(sc) {
+          setPhase(sc);
+          section.setAttribute("data-surface", "chatgpt");
+        }
+        syncTo(0);
+        if ("IntersectionObserver" in window && screensEl) {
+          var sio = new IntersectionObserver(function (es) {
+            es.forEach(function (e) {
+              if (e.isIntersecting && e.intersectionRatio >= 0.5) {
+                syncTo(+e.target.getAttribute("data-ov-screen"));
+              }
+            });
+          }, { root: screensEl, threshold: 0.55 });
+          screens.forEach(function (s) { sio.observe(s); });
+        }
+        return;
+      }
+
+      function clamp(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+      var cur = -1;
+      function frame() {
+        var rect = section.getBoundingClientRect();
+        var vh = window.innerHeight || document.documentElement.clientHeight;
+        var total = section.offsetHeight - vh;
+        if (total > 0) {
+          var p = clamp(-rect.top / total);
+          var idx = Math.floor(p * N); if (idx > N - 1) idx = N - 1; if (idx < 0) idx = 0;
+          if (idx !== cur) { cur = idx; setState(idx); }
+        }
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    });
+  }
+
+  /* ─── Discovery: the problem — "one phone, the misread" (4 beats) ──
+     0 the need types in · 1 it dims to the two words the feed reads · 2 a phone
+     answers with generic results · 3 the same phone re-answers with your brand
+     surfaced. Desktop = pinned scroll-scrub; mobile = auto-play once; reduced
+     motion = the resolved frame. Every beat fills the stage — never blank. */
+  function initDiscGap(root) {
+    var sections = root.querySelectorAll("[data-disc-gap]");
+    if (!sections.length) return;
+    sections.forEach(function (section) {
+      var pin = section.querySelector(".dc-cs-disc-gap__pin");
+      var cur = -1;
+      function setAct(n) {
+        if (n === cur) return;
+        cur = n;
+        for (var i = 0; i < 4; i++) section.classList.toggle("is-act-" + i, i === n);
+      }
+
+      if (reduceMotion || typeof requestAnimationFrame !== "function") {
+        section.classList.add("is-static");
+        setAct(3);
+        return;
+      }
+
+      var narrow = window.matchMedia && window.matchMedia("(max-width: 760px)").matches;
+      if (narrow) {
+        // mobile: replay the four beats each time the stage scrolls back into view
+        section.classList.add("is-mplay");
+        var timers = [];
+        function clearTimers() { for (var t = 0; t < timers.length; t++) clearTimeout(timers[t]); timers.length = 0; }
+        // Per-section overrides: data-mplay-hold (ms per beat, default 2200)
+        // and data-mplay-loop (replay continuously while in view).
+        var hold = parseInt(section.getAttribute("data-mplay-hold"), 10) || 2200;
+        var loop = section.hasAttribute("data-mplay-loop");
+        function play() {
+          clearTimers();
+          setAct(0);
+          // Each beat holds long enough that the reader has time to read it
+          timers.push(setTimeout(function () { setAct(1); }, hold));
+          timers.push(setTimeout(function () { setAct(2); }, hold * 2));
+          timers.push(setTimeout(function () { setAct(3); }, hold * 3));
+          if (loop) timers.push(setTimeout(play, hold * 4 + 400));
+        }
+        var inView = false;
+        if ("IntersectionObserver" in window) {
+          var mio = new IntersectionObserver(function (es) {
+            es.forEach(function (e) {
+              if (e.isIntersecting && e.intersectionRatio >= 0.4) {
+                if (!inView) { inView = true; play(); }
+              } else if (e.intersectionRatio < 0.1) {
+                inView = false; clearTimers();
+              }
+            });
+          }, { threshold: [0.05, 0.4] });
+          mio.observe(section);
+        } else { setAct(3); }
+        return;
+      }
+
+      // desktop: pinned + scroll-scrubbed across the tall pin track (4 beats)
+      section.classList.add("is-scrub");
+      if (!pin) { setAct(0); return; }
+      function clamp(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+      function frame() {
+        var rect = pin.getBoundingClientRect();
+        var vh = window.innerHeight || document.documentElement.clientHeight;
+        var total = pin.offsetHeight - vh;
+        if (total > 0) {
+          var p = clamp(-rect.top / total);
+          setAct(p < 0.25 ? 0 : p < 0.5 ? 1 : p < 0.75 ? 2 : 3);
+        }
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    });
+  }
+
+  /* ─── KT demo scene — scroll-scrubbed pinned panel ──────────────── */
+  function initKtScene(root){
+    var scenes = root.querySelectorAll("[data-kt-scene]");
+    if(!scenes.length) return;
+    scenes.forEach(function(sec){
+      var sticky = sec.querySelector("[data-kt-sticky]");
+      if(!sticky) return;
+      if(reduceMotion || typeof requestAnimationFrame !== "function"){ sec.classList.add("is-static"); return; }
+      function frame(){
+        var r = sec.getBoundingClientRect();
+        var vh = window.innerHeight || document.documentElement.clientHeight;
+        var scrollable = sec.offsetHeight - vh;
+        var p = scrollable > 1 ? -r.top / scrollable : 0;
+        if(p < 0) p = 0; else if(p > 1) p = 1;
+        var e = p < .5 ? 4*p*p*p : 1 - Math.pow(-2*p + 2, 3) / 2;
+        sticky.style.setProperty("--p", e.toFixed(4));
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    });
+  }
+
+  /* ─── KT demo stage — trimmed Experience scene (one persistent phone) ──
+     Mirrors initProdxScene: one normalized scroll progress p sliced into
+     overlapping smoothstep phases, each written as a CSS custom prop on the
+     sticky so CSS does the transforms. Chat scrollTop + active beat are
+     driven directly. Reduced-motion -> .is-static; <=900px -> .is-mplay. */
+  function initKtStage(root){
+    var sections = root.querySelectorAll("[data-kt-stage]");
+    if(!sections.length) return;
+    sections.forEach(function(section){
+      var sticky = section.querySelector(".dc-cs-kt-stage__sticky");
+      var phone  = section.querySelector(".dc-cs-kt-stage__phone");
+      var chat   = section.querySelector("[data-kt-chat]");
+      var beats  = chat ? chat.querySelectorAll("[data-ktbeat]") : [];
+      var caps   = section.querySelectorAll("[data-ktcap]");
+      if(!sticky || !phone) return;
+
+      function clamp(v){ return v < 0 ? 0 : v > 1 ? 1 : v; }
+      function sm(a,b,x){ var t = clamp((x - a) / (b - a)); return t * t * (3 - 2 * t); }
+      function setActive(i){
+        for(var b = 0; b < beats.length; b++) beats[b].classList.toggle("is-active", (+beats[b].getAttribute("data-ktbeat")) === i);
+        for(var c = 0; c < caps.length; c++) caps[c].classList.toggle("is-active", (+caps[c].getAttribute("data-ktcap")) === i);
+      }
+
+      if(reduceMotion || typeof requestAnimationFrame !== "function"){
+        section.classList.add("is-static");
+        return;
+      }
+
+      // Mobile uses the SAME scroll-scrub loop as desktop (no timer). The
+      // .is-mscrub class lets the CSS simplify the layout (phone centered,
+      // cards/collage hidden, caption below) while the chat scrubs on scroll.
+      var narrow = window.matchMedia && window.matchMedia("(max-width: 900px)").matches;
+      if(narrow) section.classList.add("is-mscrub");
+
+      var curBeat = -1;
+      function frame(now){
+        var rect = section.getBoundingClientRect();
+        var vh = window.innerHeight || document.documentElement.clientHeight;
+        var total = section.offsetHeight - vh;
+        if(total > 0 && rect.bottom > -60 && rect.top < vh + 60){
+          var p = clamp(-rect.top / total);
+
+          var heroOut    = sm(0.05, 0.12, p);
+          var straighten = sm(0.10, 0.22, p);   // upright more gradually
+          var bg         = sm(0.10, 0.26, p);
+          var emit       = sm(0.16, 0.30, p);
+          var scatter    = sm(0.24, 0.44, p);
+          var clear      = sm(0.48, 0.58, p);
+          var settle     = sm(0.50, 0.60, p);
+          var chatP      = sm(0.60, 0.96, p);   // slower final beats
+          var header     = sm(0.40, 0.52, p);   // hold collage header until cards mostly scattered
+
+          sticky.style.setProperty("--hero", (1 - heroOut).toFixed(4));
+          sticky.style.setProperty("--rise", straighten.toFixed(4));
+          sticky.style.setProperty("--bg", bg.toFixed(4));
+          sticky.style.setProperty("--emit", emit.toFixed(4));
+          sticky.style.setProperty("--scatter", scatter.toFixed(4));
+          sticky.style.setProperty("--clear", clear.toFixed(4));
+          sticky.style.setProperty("--collage", (header * (1 - clear)).toFixed(4));
+          sticky.style.setProperty("--settle", settle.toFixed(4));
+
+          // Idle "breathe" bob — only while the phone has not straightened.
+          var breathe = straighten < 1 ? Math.sin(now / 1000 * 1.6) * 5 * (1 - straighten) : 0;
+          sticky.style.setProperty("--breathe", breathe.toFixed(2) + "px");
+
+          // Chat scrub + active beat, lock-step with scroll.
+          var nB = beats.length;
+          if(chat && nB){
+            var first = Math.max(0, beats[0].offsetTop - 16);
+            if(p < 0.60){
+              chat.scrollTop = first;
+              var a0 = settle >= 0.85 ? 0 : -1;
+              if(a0 !== curBeat){ curBeat = a0; setActive(a0); }
+            } else {
+              var beatF = chatP * (nB - 1);
+              var i0 = Math.floor(beatF); if(i0 > nB - 2) i0 = nB - 2; if(i0 < 0) i0 = 0;
+              var t0 = Math.max(0, beats[i0].offsetTop - 16);
+              var t1 = Math.max(0, beats[i0 + 1].offsetTop - 16);
+              chat.scrollTop = t0 + (t1 - t0) * (beatF - i0);
+              var ab = Math.floor(beatF + 0.0001); if(ab > nB - 1) ab = nB - 1;
+              if(ab !== curBeat){ curBeat = ab; setActive(ab); }
+            }
+          }
+        }
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    });
+  }
+
   /* ─── Boot ────────────────────────────────────────────────────── */
   ready(function () {
     var roots = document.querySelectorAll(".dc-cs-main, .dc-cs-detail");
@@ -1540,6 +2223,15 @@
       initStageSequencer(root);
       initStagePinTracking(root);
       initCaseStudyVideos(root);
+      initProdxScene(root);
+      initProdxMiss(root);
+      initProdxTicker(root);
+      initOvJourney(root);
+      initHiwArch(root);
+      initHiwType(root);
+      initDiscGap(root);
+      initKtScene(root);
+      initKtStage(root);
     });
   });
 })();
